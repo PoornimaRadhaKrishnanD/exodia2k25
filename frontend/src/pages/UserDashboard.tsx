@@ -360,7 +360,7 @@ const UserDashboard = () => {
                     Payment History
                   </Button>
                 </Link>
-                <Link to="/profile">
+                <Link to="/profile-settings">
                   <Button variant="outline" className="w-full h-16">
                     <Settings className="h-6 w-6 mr-2" />
                     Profile Settings

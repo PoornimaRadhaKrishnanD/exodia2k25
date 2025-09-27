@@ -20,6 +20,7 @@ import OrganizerDashboard from "./pages/OrganizerDashboard";
 import OrganizerCreateTournament from "./pages/OrganizerCreateTournament"; // ✅ Correct import
 import { TournamentProvider } from "./context/TournamentContext";
 import { UserProvider } from "./context/UserContext";
+import ProfileSettingsPage from "./pages/ProfileSettingsPage";
 
 const queryClient = new QueryClient();
 
@@ -36,6 +37,7 @@ const App = () => (
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<SignUp />} />
               <Route path="/dashboard" element={<UserDashboard />} />
+              <Route path="/profile-settings" element={<ProfileSettingsPage />} />
 
               {/* Admin Routes */}
               <Route path="/admin/login" element={<AdminLogin />} />

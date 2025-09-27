@@ -375,6 +375,296 @@ router.get("/profile", authenticateToken, async (req, res) => {
   }
 });
 
+// Update user profile (protected route)
+router.put("/profile", authenticateToken, async (req, res) => {
+  try {
+    console.log("📝 Profile update request for user:", req.user.id);
+    
+    const { name, phone, bio, avatar, preferredSports, skillLevel } = req.body;
+    
+    // Find user and update allowed fields
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    
+    // Update basic fields
+    if (name) user.name = name;
+    if (phone) user.phone = phone;
+    
+    // Initialize profile info if it doesn't exist
+    if (!user.profileInfo) {
+      user.profileInfo = {};
+    }
+    
+    // Update profile-specific fields
+    if (bio !== undefined) user.profileInfo.bio = bio;
+    if (avatar !== undefined) user.profileInfo.avatar = avatar;
+    if (preferredSports) user.profileInfo.preferredSports = preferredSports;
+    if (skillLevel) user.profileInfo.skillLevel = skillLevel;
+    
+    await user.save();
+    
+    // Return updated user without password
+    const { password: _, ...userWithoutPassword } = user.toObject();
+    
+    console.log("✅ Profile updated successfully:", req.user.id);
+    res.json({ 
+      message: "Profile updated successfully", 
+      user: userWithoutPassword 
+    });
+  } catch (err) {
+    console.error("❌ Profile update error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Change password (protected route)
+router.put("/change-password", authenticateToken, async (req, res) => {
+  try {
+    console.log("🔒 Password change request for user:", req.user.id);
+    
+    const { currentPassword, newPassword } = req.body;
+    
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: "Current and new password are required" });
+    }
+    
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: "New password must be at least 6 characters long" });
+    }
+    
+    // Find user
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    
+    // Verify current password
+    const validPass = await bcrypt.compare(currentPassword, user.password);
+    if (!validPass) {
+      return res.status(400).json({ error: "Current password is incorrect" });
+    }
+    
+    // Hash new password
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedNewPassword;
+    
+    await user.save();
+    
+    console.log("✅ Password changed successfully:", req.user.id);
+    res.json({ message: "Password changed successfully" });
+  } catch (err) {
+    console.error("❌ Password change error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Update notification settings (protected route)
+router.put("/notifications", authenticateToken, async (req, res) => {
+  try {
+    console.log("🔔 Notification settings update for user:", req.user.id);
+    
+    const { tournamentReminders, matchResults, promoOffers, darkMode } = req.body;
+    
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    
+    // Initialize notification settings if they don't exist
+    if (!user.notificationSettings) {
+      user.notificationSettings = {};
+    }
+    
+    // Update notification preferences
+    if (tournamentReminders !== undefined) user.notificationSettings.tournamentReminders = tournamentReminders;
+    if (matchResults !== undefined) user.notificationSettings.matchResults = matchResults;
+    if (promoOffers !== undefined) user.notificationSettings.promoOffers = promoOffers;
+    if (darkMode !== undefined) user.notificationSettings.darkMode = darkMode;
+    
+    await user.save();
+    
+    console.log("✅ Notification settings updated:", req.user.id);
+    res.json({ 
+      message: "Notification settings updated successfully", 
+      settings: user.notificationSettings 
+    });
+  } catch (err) {
+    console.error("❌ Notification settings error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Update payment settings (protected route)
+router.put("/payment-settings", authenticateToken, async (req, res) => {
+  try {
+    console.log("💳 Payment settings update for user:", req.user.id);
+    
+    const { bankName, accountNumber, swiftBic, paymentMethods } = req.body;
+    
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    
+    // Initialize payment settings if they don't exist
+    if (!user.paymentSettings) {
+      user.paymentSettings = {};
+    }
+    
+    // Update payment information
+    if (bankName) user.paymentSettings.bankName = bankName;
+    if (accountNumber) user.paymentSettings.accountNumber = accountNumber;
+    if (swiftBic) user.paymentSettings.swiftBic = swiftBic;
+    if (paymentMethods) user.paymentSettings.paymentMethods = paymentMethods;
+    
+    await user.save();
+    
+    console.log("✅ Payment settings updated:", req.user.id);
+    res.json({ 
+      message: "Payment settings updated successfully", 
+      settings: user.paymentSettings 
+    });
+  } catch (err) {
+    console.error("❌ Payment settings error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Get user's friends/social connections (protected route)
+router.get("/friends", authenticateToken, async (req, res) => {
+  try {
+    console.log("👥 Friends request for user:", req.user.id);
+    
+    const user = await User.findById(req.user.id)
+      .populate('socialConnections.userId', 'name email profileInfo.avatar')
+      .select('-password');
+    
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    
+    const friends = user.socialConnections || [];
+    
+    res.json({ friends });
+  } catch (err) {
+    console.error("❌ Friends error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Delete user account (protected route)
+router.delete("/delete-account", authenticateToken, async (req, res) => {
+  try {
+    console.log("🗑️ Account deletion request for user:", req.user.id);
+    
+    const { password } = req.body;
+    
+    if (!password) {
+      return res.status(400).json({ error: "Password is required to delete account" });
+    }
+    
+    // Find user
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    
+    // Verify password
+    const validPass = await bcrypt.compare(password, user.password);
+    if (!validPass) {
+      return res.status(400).json({ error: "Password is incorrect" });
+    }
+    
+    // Instead of deleting, deactivate the account
+    user.isActive = false;
+    user.deactivatedAt = new Date();
+    await user.save();
+    
+    console.log("✅ Account deactivated:", req.user.id);
+    res.json({ message: "Account has been deactivated successfully" });
+  } catch (err) {
+    console.error("❌ Account deletion error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Upload avatar (protected route)
+router.post("/upload-avatar", authenticateToken, async (req, res) => {
+  try {
+    console.log("📸 Avatar upload request for user:", req.user.id);
+    
+    const { avatar } = req.body;
+    
+    if (!avatar) {
+      return res.status(400).json({ error: "Avatar data is required" });
+    }
+    
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    
+    // Initialize profile info if it doesn't exist
+    if (!user.profileInfo) {
+      user.profileInfo = {};
+    }
+    
+    user.profileInfo.avatar = avatar;
+    await user.save();
+    
+    console.log("✅ Avatar updated:", req.user.id);
+    res.json({ 
+      message: "Avatar updated successfully", 
+      avatar: user.profileInfo.avatar 
+    });
+  } catch (err) {
+    console.error("❌ Avatar upload error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Get user statistics (protected route)
+router.get("/stats", authenticateToken, async (req, res) => {
+  try {
+    console.log("📊 Stats request for user:", req.user.id);
+    
+    const Tournament = require("../models/Tournament");
+    
+    // Get tournaments where user is registered
+    const userTournaments = await Tournament.find({
+      'registeredUsers.userId': req.user.id,
+      isActive: true
+    });
+    
+    const totalMatches = userTournaments.length;
+    const completedTournaments = userTournaments.filter(t => t.status === 'completed').length;
+    const ongoingTournaments = userTournaments.filter(t => t.status === 'ongoing').length;
+    const upcomingTournaments = userTournaments.filter(t => t.status === 'upcoming').length;
+    
+    // Mock some additional stats
+    const wins = Math.floor(completedTournaments * 0.65); // 65% win rate
+    const goals = Math.floor(totalMatches * 2.3); // Average 2.3 goals per match
+    const winRate = totalMatches > 0 ? Math.round((wins / totalMatches) * 100) : 0;
+    
+    const stats = {
+      matches: totalMatches,
+      wins: wins,
+      goals: goals,
+      winRate: winRate,
+      completedTournaments,
+      ongoingTournaments,
+      upcomingTournaments
+    };
+    
+    res.json({ stats });
+  } catch (err) {
+    console.error("❌ Stats error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 // Get login history (protected route)
 router.get("/login-history", authenticateToken, async (req, res) => {
   try {

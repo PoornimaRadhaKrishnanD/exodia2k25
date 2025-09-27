@@ -1,12 +1,14 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Trophy, Users, CreditCard, Shield, Calendar, Star, MessageCircle, X } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Trophy, Users, CreditCard, Shield, Calendar, Star, MessageCircle, X, Target, Settings } from "lucide-react";
 import tournamentHero from "../assets/tournament-hero.jpg";
 import paymentHero from "../assets/payment-hero.jpg";
 import dashboardHero from "../assets/dashboard-hero.jpg";
 
 const Index = () => {
+  const navigate = useNavigate();
   const [chatOpen, setChatOpen] = useState(false);
   const [messages, setMessages] = useState<{ from: "user" | "bot"; text: string }[]>([
     { from: "bot", text: "👋 Hi! I’m the Tournament Pro Assistant. Ask me anything about tournaments, registration, or payments." }
@@ -16,7 +18,7 @@ const Index = () => {
   const handleSend = () => {
     if (!input.trim()) return;
 
-    const newMessages = [...messages, { from: "user", text: input }];
+    const newMessages = [...messages, { from: "user" as const, text: input }];
 
     // Simple bot logic
     let reply = "🤖 I am the Tournament Pro Assistant. I can only answer questions related to this website.";
@@ -26,7 +28,7 @@ const Index = () => {
     else if (query.includes("withdraw")) reply = "You can request withdrawal before the deadline. Partial refund applies.";
     else if (query.includes("organizer")) reply = "Organizers can log in via the Admin Portal and create tournaments.";
 
-    setMessages([...newMessages, { from: "bot", text: reply }]);
+    setMessages([...newMessages, { from: "bot" as const, text: reply }]);
     setInput("");
   };
 
