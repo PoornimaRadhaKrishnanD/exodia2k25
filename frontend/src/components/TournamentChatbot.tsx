@@ -53,14 +53,17 @@ const TournamentChatbot = () => {
 
       const data = await response.json();
 
-      const botMsg = {
-        id: Date.now() + 1,
-        content: data.response,
-        isUser: false,
-        timestamp: new Date(),
-      };
-
-      setMessages((prev) => [...prev, botMsg]);
+      if (data.success) {
+        const botMsg = {
+          id: Date.now() + 1,
+          content: data.response,
+          isUser: false,
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, botMsg]);
+      } else {
+        throw new Error(data.error || "Failed to get response");
+      }
     } catch (error) {
       console.error("Chat error:", error);
       setMessages((prev) => [
@@ -124,7 +127,10 @@ const TournamentChatbot = () => {
                       : "bg-white border shadow-sm text-gray-800"
                   }`}
                 >
-                  <p className="text-sm">{msg.content}</p>
+                  <div
+                    className="text-sm"
+                    dangerouslySetInnerHTML={{ __html: msg.content }}
+                  />
                   <p className="text-xs opacity-60">
                     {msg.timestamp.toLocaleTimeString([], {
                       hour: "2-digit",
