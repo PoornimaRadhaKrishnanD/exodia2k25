@@ -7,6 +7,7 @@ const {
   updateTournament,
   deleteTournament,
   registerForTournament,
+  getTournamentRegistrations,
   getAdminStats
 } = require("../controllers/tournamentController");
 
@@ -52,6 +53,7 @@ router.get("/stats", getAdminStats);              // GET /api/tournaments/stats
 router.get("/:id", getTournamentById);            // GET /api/tournaments/:id
 
 // Protected routes (require authentication)
+router.get("/:id/registrations", authenticateToken, getTournamentRegistrations); // GET /api/tournaments/:id/registrations
 router.post("/", authenticateToken, createTournament);              // POST /api/tournaments
 router.put("/:id", authenticateToken, updateTournament);           // PUT /api/tournaments/:id
 router.delete("/:id", authenticateToken, deleteTournament);        // DELETE /api/tournaments/:id

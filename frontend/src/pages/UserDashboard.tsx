@@ -1,8 +1,9 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
 import { 
   Trophy, 
   Calendar, 
@@ -18,70 +19,128 @@ import {
 } from "lucide-react";
 
 const UserDashboard = () => {
-  const [user] = useState({
-    name: "John Doe",
-    email: "john@example.com",
-    joinedTournaments: 12,
-    wonTournaments: 3,
-    totalSpent: 2500,
+  const [user, setUser] = useState({
+    name: "Loading...",
+    email: "loading@example.com",
+    joinedTournaments: 0,
+    wonTournaments: 0,
+    totalSpent: 0,
   });
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
-  const [myTournaments] = useState([
-    {
-      id: 1,
-      name: "Cricket Championship 2024",
-      status: "upcoming",
-      date: "2024-01-15",
-      participants: 32,
-      entryFee: 500,
-      prize: 15000,
-      type: "Cricket"
-    },
-    {
-      id: 2,
-      name: "Football League Finals",
-      status: "ongoing",
-      date: "2024-01-10",
-      participants: 16,
-      entryFee: 750,
-      prize: 20000,
-      type: "Football"
-    },
-    {
-      id: 3,
-      name: "Basketball Tournament",
-      status: "completed",
-      date: "2023-12-20",
-      participants: 8,
-      entryFee: 300,
-      prize: 5000,
-      type: "Basketball",
-      result: "Winner"
-    },
-  ]);
+  // Load user data on component mount
+  useEffect(() => {
+    const loadUserData = async () => {
+      try {
+        const token = localStorage.getItem('authToken');
+        const userData = localStorage.getItem('user');
+        
+        if (!token || !userData) {
+          toast({
+            title: "Login Required",
+            description: "Please login to access your dashboard",
+            variant: "destructive",
+          });
+          navigate('/login');
+          return;
+        }
 
-  const [availableTournaments] = useState([
-    {
-      id: 4,
-      name: "Tennis Open 2024",
-      date: "2024-01-25",
-      participants: 24,
-      maxParticipants: 32,
-      entryFee: 400,
-      prize: 12000,
-      type: "Tennis"
-    },
-    {
-      id: 5,
-      name: "Badminton Championship",
-      date: "2024-02-01",
-      participants: 18,
-      maxParticipants: 24,
-      entryFee: 350,
-      prize: 8000,
-      type: "Badminton"
-    },
-  ]);
+        const parsedUser = JSON.parse(userData);
+        
+        // Get additional user stats from backend
+        const response = await fetch('http://localhost:5000/api/auth/profile', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (response.ok) {
+          const profileData = await response.json();
+          setUser({
+            name: parsedUser.name,
+            email: parsedUser.email,
+            joinedTournaments: profileData.user?.joinedTournaments || 0,
+            wonTournaments: profileData.user?.wonTournaments || 0,
+            totalSpent: profileData.user?.totalSpent || 0,
+          });
+        } else {
+          // Use basic data from localStorage if profile API fails
+          setUser({
+            name: parsedUser.name,
+            email: parsedUser.email,
+            joinedTournaments: 0,
+            wonTournaments: 0,
+            totalSpent: 0,
+          });
+        }
+
+        // Load tournaments
+        await loadTournaments(token, parsedUser._id || parsedUser.id);
+        
+      } catch (error) {
+        console.error('Error loading user data:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load user data",
+          variant: "destructive",
+        });
+        navigate('/login');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const loadTournaments = async (token: string, userId: string) => {
+      try {
+        // Load all tournaments
+        const tournamentsResponse = await fetch('http://localhost:5000/api/tournaments');
+        const tournamentsData = await tournamentsResponse.json();
+        const allTournaments = tournamentsData.data || tournamentsData;
+
+        if (Array.isArray(allTournaments)) {
+          // Filter tournaments where user is registered
+          const userTournaments = allTournaments.filter(tournament => 
+            tournament.registeredUsers?.some((reg: any) => 
+              reg.userId === userId || reg.userId._id === userId
+            )
+          );
+
+          // Available tournaments (upcoming, not full, user not registered)
+          const availableTournaments = allTournaments.filter(tournament => 
+            tournament.status === 'upcoming' &&
+            tournament.participants < tournament.maxParticipants &&
+            !tournament.registeredUsers?.some((reg: any) => 
+              reg.userId === userId || reg.userId._id === userId
+            )
+          ).slice(0, 3); // Show only first 3
+
+          setMyTournaments(userTournaments);
+          setAvailableTournaments(availableTournaments);
+        }
+      } catch (error) {
+        console.error('Error loading tournaments:', error);
+        // Keep empty arrays as fallback
+      }
+    };
+
+    loadUserData();
+  }, [navigate, toast]);
+
+  const handleLogout = () => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
+    toast({
+      title: "Logged Out",
+      description: "You have been successfully logged out",
+    });
+    navigate('/login');
+  };
+
+  const [myTournaments, setMyTournaments] = useState<any[]>([]);
+  const [availableTournaments, setAvailableTournaments] = useState<any[]>([]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -91,6 +150,18 @@ const UserDashboard = () => {
       default: return 'bg-muted text-muted-foreground';
     }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <div className="text-xl font-semibold">Loading your dashboard...</div>
+          <div className="text-sm text-muted-foreground mt-2">Please wait while we fetch your data</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -108,12 +179,10 @@ const UserDashboard = () => {
             <Button variant="ghost" size="icon">
               <Settings className="h-5 w-5" />
             </Button>
-            <Link to="/login">
-              <Button variant="outline">
-                <LogOut className="h-4 w-4 mr-2" />
-                Logout
-              </Button>
-            </Link>
+            <Button onClick={handleLogout} variant="outline">
+              <LogOut className="h-4 w-4 mr-2" />
+              Logout
+            </Button>
           </div>
         </div>
       </header>
@@ -256,7 +325,11 @@ const UserDashboard = () => {
                         ₹{tournament.entryFee}
                       </span>
                     </div>
-                    <Button variant="hero" className="w-full">
+                    <Button 
+                      variant="hero" 
+                      className="w-full text-black hover:text-black"
+                      onClick={() => navigate('/tournaments')}
+                    >
                       <Plus className="h-4 w-4 mr-2" />
                       Join Tournament
                     </Button>

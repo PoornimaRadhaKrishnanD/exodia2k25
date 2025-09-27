@@ -47,6 +47,8 @@ mongoose.connection.on('reconnected', () => {
 const tournamentRoutes = require("./routes/tournament");
 const authRoutes = require("./routes/auth");   // 🆕 add auth route
 const adminRoutes = require("./routes/admin"); // 🆕 add admin route
+const registrationRoutes = require("./routes/registrations"); // 🆕 add registration routes
+const organizerRoutes = require("./routes/organizer"); // 🆕 add organizer routes
 
 // =====================
 // Routes
@@ -58,6 +60,8 @@ app.get("/", (req, res) => {
 app.use("/api/tournaments", tournamentRoutes);
 app.use("/api/auth", authRoutes);  // 🆕 register & login routes
 app.use("/api/admin", adminRoutes); // 🆕 admin dashboard routes
+app.use("/api/registrations", registrationRoutes); // 🆕 detailed registration routes
+app.use("/api/organizer", organizerRoutes); // 🆕 organizer dashboard routes
 
 // =====================
 // Server

@@ -50,7 +50,14 @@ const SignUp = () => {
 
       if (!res.ok) throw new Error(data.error || "Failed to register");
 
-      toast({ title: "Account Created!", description: "Welcome! Please verify your email." });
+      // Store authentication token and user data for automatic login
+      localStorage.setItem('authToken', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+
+      toast({ 
+        title: "Account Created!", 
+        description: `Welcome, ${data.user.name}! You are now logged in.` 
+      });
       navigate("/dashboard");
 
     } catch (err: any) {

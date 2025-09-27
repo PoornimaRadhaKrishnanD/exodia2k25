@@ -1,6 +1,7 @@
 const Tournament = require("../models/Tournament");
 const User = require("../models/User");
 const AdminStats = require("../models/AdminStats");
+const TournamentRegistration = require("../models/TournamentRegistration");
 
 // Get all tournaments with optional filtering
 exports.getTournaments = async (req, res) => {
@@ -207,13 +208,64 @@ exports.deleteTournament = async (req, res) => {
   }
 };
 
+// Get tournament registrations (admin only)
+exports.getTournamentRegistrations = async (req, res) => {
+  try {
+    console.log("📋 Fetching tournament registrations:", req.params.id);
+    
+    // Check if user is admin
+    if (req.user?.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: "Admin access required"
+      });
+    }
+    
+    const tournament = await Tournament.findById(req.params.id)
+      .select('name type date');
+    
+    if (!tournament) {
+      return res.status(404).json({
+        success: false,
+        error: "Tournament not found"
+      });
+    }
+    
+    // Get all registrations for this tournament from the separate collection
+    const registrations = await TournamentRegistration.findByTournament(req.params.id);
+    
+    console.log(`✅ Found ${registrations.length} detailed registrations`);
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        tournament: {
+          id: tournament._id,
+          name: tournament.name,
+          type: tournament.type,
+          date: tournament.date
+        },
+        registrations,
+        totalRegistrations: registrations.length
+      }
+    });
+  } catch (err) {
+    console.error("❌ Error fetching tournament registrations:", err);
+    res.status(500).json({ 
+      success: false,
+      error: "Failed to fetch tournament registrations",
+      message: err.message 
+    });
+  }
+};
+
 // Register user for tournament
 exports.registerForTournament = async (req, res) => {
   try {
     console.log("📝 Registering user for tournament:", req.params.id);
     
     const { id } = req.params;
-    const { userId, paymentStatus = "pending", transactionId } = req.body;
+    const { userId, paymentStatus = "pending", transactionId, registrationData } = req.body;
     const userIdToRegister = userId || req.user?.id;
     
     if (!userIdToRegister) {
@@ -221,6 +273,26 @@ exports.registerForTournament = async (req, res) => {
         success: false,
         error: "User ID is required"
       });
+    }
+    
+    // Validate registration data if provided
+    if (registrationData) {
+      const requiredFields = ['fullName', 'email', 'phone', 'dateOfBirth', 'gender', 'address', 'city', 'state', 'zipCode', 'emergencyContactName', 'emergencyContactPhone', 'emergencyContactRelation'];
+      const missingFields = requiredFields.filter(field => !registrationData[field]);
+      
+      if (missingFields.length > 0) {
+        return res.status(400).json({
+          success: false,
+          error: `Missing required registration fields: ${missingFields.join(', ')}`
+        });
+      }
+
+      if (!registrationData.agreeTerms) {
+        return res.status(400).json({
+          success: false,
+          error: "You must agree to the terms and conditions"
+        });
+      }
     }
     
     const tournament = await Tournament.findById(id);
@@ -231,12 +303,14 @@ exports.registerForTournament = async (req, res) => {
       });
     }
     
-    // Check if user already registered
-    const alreadyRegistered = tournament.registeredUsers.some(
-      reg => reg.userId.toString() === userIdToRegister
-    );
+    // Check if user already registered in the separate registration collection
+    const existingRegistration = await TournamentRegistration.findOne({
+      tournamentId: id,
+      userId: userIdToRegister,
+      isActive: true
+    });
     
-    if (alreadyRegistered) {
+    if (existingRegistration) {
       return res.status(400).json({
         success: false,
         error: "User already registered for this tournament"
@@ -251,7 +325,79 @@ exports.registerForTournament = async (req, res) => {
       });
     }
     
-    // Add user to registered users
+    // Create detailed registration record in separate collection
+    let detailedRegistration = null;
+    if (registrationData) {
+      detailedRegistration = new TournamentRegistration({
+        tournamentId: id,
+        userId: userIdToRegister,
+        paymentStatus,
+        transactionId,
+        
+        // Personal Information
+        personalInfo: {
+          fullName: registrationData.fullName,
+          email: registrationData.email,
+          phone: registrationData.phone,
+          dateOfBirth: new Date(registrationData.dateOfBirth),
+          gender: registrationData.gender
+        },
+        
+        // Address Information
+        addressInfo: {
+          address: registrationData.address,
+          city: registrationData.city,
+          state: registrationData.state,
+          zipCode: registrationData.zipCode,
+          country: registrationData.country || 'India'
+        },
+        
+        // Emergency Contact
+        emergencyContact: {
+          name: registrationData.emergencyContactName,
+          phone: registrationData.emergencyContactPhone,
+          relation: registrationData.emergencyContactRelation
+        },
+        
+        // Sports Information
+        sportsInfo: {
+          experience: registrationData.experience || 'beginner',
+          previousTournaments: registrationData.previousTournaments || '',
+          medicalConditions: registrationData.medicalConditions || '',
+          specialRequirements: registrationData.specialRequirements || ''
+        },
+        
+        // Additional Information
+        additionalInfo: {
+          howDidYouHear: registrationData.howDidYouHear,
+          additionalComments: registrationData.additionalComments || ''
+        },
+        
+        // Payment Information
+        paymentInfo: {
+          paymentMethod: registrationData.paymentMethod,
+          amountPaid: paymentStatus === 'completed' ? tournament.entryFee : 0
+        },
+        
+        // Agreements
+        agreements: {
+          termsAndConditions: registrationData.agreeTerms || false,
+          privacyPolicy: true,
+          marketingConsent: false,
+          photoConsent: false
+        },
+        
+        // Status
+        status: {
+          registrationStatus: paymentStatus === 'completed' ? 'confirmed' : 'pending'
+        }
+      });
+      
+      await detailedRegistration.save();
+      console.log("✅ Detailed registration data saved to separate collection");
+    }
+    
+    // Add basic registration to tournament document
     tournament.registeredUsers.push({
       userId: userIdToRegister,
       paymentStatus,
@@ -263,7 +409,7 @@ exports.registerForTournament = async (req, res) => {
     
     await tournament.save();
     
-    console.log("✅ User registered for tournament");
+    console.log("✅ User registered for tournament with detailed form data");
     
     // Update admin stats
     await updateAdminStats();
@@ -274,7 +420,9 @@ exports.registerForTournament = async (req, res) => {
       data: {
         tournamentId: tournament._id,
         participants: tournament.participants,
-        maxParticipants: tournament.maxParticipants
+        maxParticipants: tournament.maxParticipants,
+        registrationId: detailedRegistration?._id,
+        hasDetailedData: !!detailedRegistration
       }
     });
   } catch (err) {

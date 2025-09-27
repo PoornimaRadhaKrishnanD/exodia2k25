@@ -32,7 +32,11 @@ const Login = () => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Login failed");
 
-      toast({ title: "Login Successful!", description: "Welcome back!" });
+      // Store authentication token and user data
+      localStorage.setItem('authToken', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+
+      toast({ title: "Login Successful!", description: `Welcome back, ${data.user.name}!` });
       navigate("/dashboard");
     } catch (err: any) {
       toast({ title: "Login Failed", description: err.message, variant: "destructive" });
@@ -121,6 +125,18 @@ const Login = () => {
                   Sign up
                 </Link>
               </p>
+            </div>
+            <div className="mt-6 flex flex-col gap-2 text-center">
+              <Link to="/admin/login">
+                <Button variant="outline" className="w-full bg-gray-200 hover:bg-gray-300 text-gray-900">
+                  Admin Login
+                </Button>
+              </Link>
+              <Link to="/organizer/login">
+                <Button variant="outline" className="w-full bg-green-200 hover:bg-green-300 text-gray-900">
+                  Organizer Login
+                </Button>
+              </Link>
             </div>
           </CardContent>
         </Card>
