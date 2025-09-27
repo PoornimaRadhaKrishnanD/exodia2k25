@@ -40,7 +40,7 @@ const OrganizerCreateTournament = () => {
     }
   }, [navigate, toast]);
 
-  const handleInputChange = (name, value) => {
+  const handleInputChange = (name: string, value: string) => {
     setFormData(prev => ({
       ...prev,
       [name]: value
@@ -112,7 +112,7 @@ const OrganizerCreateTournament = () => {
     return true;
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!validateForm()) {

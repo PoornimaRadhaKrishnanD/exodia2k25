@@ -1,11 +1,35 @@
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Trophy, Users, CreditCard, Shield, Calendar, Star } from "lucide-react";
+import { Trophy, Users, CreditCard, Shield, Calendar, Star, MessageCircle, X } from "lucide-react";
 import tournamentHero from "../assets/tournament-hero.jpg";
 import paymentHero from "../assets/payment-hero.jpg";
 import dashboardHero from "../assets/dashboard-hero.jpg";
 
 const Index = () => {
+  const [chatOpen, setChatOpen] = useState(false);
+  const [messages, setMessages] = useState<{ from: "user" | "bot"; text: string }[]>([
+    { from: "bot", text: "👋 Hi! I’m the Tournament Pro Assistant. Ask me anything about tournaments, registration, or payments." }
+  ]);
+  const [input, setInput] = useState("");
+
+  const handleSend = () => {
+    if (!input.trim()) return;
+
+    const newMessages = [...messages, { from: "user", text: input }];
+
+    // Simple bot logic
+    let reply = "🤖 I am the Tournament Pro Assistant. I can only answer questions related to this website.";
+    const query = input.toLowerCase();
+    if (query.includes("join")) reply = "To join a tournament, browse the tournaments list and click 'Join Tournament'.";
+    else if (query.includes("payment")) reply = "Payments are 100% digital - UPI, Cards, Wallets. No cash accepted.";
+    else if (query.includes("withdraw")) reply = "You can request withdrawal before the deadline. Partial refund applies.";
+    else if (query.includes("organizer")) reply = "Organizers can log in via the Admin Portal and create tournaments.";
+
+    setMessages([...newMessages, { from: "bot", text: reply }]);
+    setInput("");
+  };
+
   return (
     <div className="min-h-screen bg-white text-gray-900">
       {/* Navigation */}
@@ -17,7 +41,7 @@ const Index = () => {
           </div>
           <div className="flex items-center gap-4">
             <Link to="/login">
-              <Button variant="outline" className="text-gray-700 border-gray-300 hover:bg-gray-50">Login</Button>
+              <Button variant="outline" className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 ">Login</Button>
             </Link>
             <Link to="/signup">
               <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700">Sign Up</Button>
@@ -28,13 +52,8 @@ const Index = () => {
 
       {/* Hero Section */}
       <section className="hero-section min-h-screen flex items-center pt-20 relative overflow-hidden bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-        <img 
-          src={tournamentHero} 
-          alt="Tournament Sports Arena" 
-          className="absolute inset-0 w-full h-full object-cover opacity-10"
-        />
+        <img src={tournamentHero} alt="Tournament Sports Arena" className="absolute inset-0 w-full h-full object-cover opacity-10" />
         <div className="absolute inset-0 bg-gradient-to-br from-blue-50/90 via-white/95 to-indigo-50/90"></div>
-
         <div className="container mx-auto px-4 relative z-10 text-center">
           <h1 className="text-5xl md:text-7xl font-bold mb-6 animate-fade-in text-gray-900">
             Digital Tournament
@@ -78,7 +97,7 @@ const Index = () => {
               desc: "Create, manage, and participate in tournaments with real-time updates and notifications.",
               img: dashboardHero
             },{
-              icon: <Calendar className="h-8 w-8 text-blue-600" />,
+              icon: <Calendar className="h-8 w-8 text-white" />,
               title: "Smart Scheduling",
               desc: "Calendar interface for booking slots, avoiding conflicts, and managing availability.",
               img: null
@@ -101,12 +120,7 @@ const Index = () => {
       <section className="py-20 bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
         <div className="container mx-auto px-4">
           <div className="grid md:grid-cols-4 gap-8 text-center">
-            {[
-              {value:"95%", label:"Payment Success Rate"},
-              {value:"1000+", label:"Tournaments Hosted"},
-              {value:"5000+", label:"Active Users"},
-              {value:"70%", label:"Management Efficiency"}
-            ].map((stat,i)=>(
+            {[{value:"95%", label:"Payment Success Rate"},{value:"1000+", label:"Tournaments Hosted"},{value:"5000+", label:"Active Users"},{value:"70%", label:"Management Efficiency"}].map((stat,i)=>(
               <div key={i}>
                 <div className="text-4xl font-bold mb-2">{stat.value}</div>
                 <div className="text-xl text-blue-100">{stat.label}</div>
@@ -129,7 +143,7 @@ const Index = () => {
             </Button>
           </Link>
           <Link to="/tournaments">
-            <Button variant="outline" size="lg" className="border-gray-300 text-gray-700 hover:bg-gray-50">Browse Tournaments</Button>
+            <Button size="lg" className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 flex items-center gap-2 ">Browse Tournaments</Button>
           </Link>
         </div>
       </section>
@@ -142,9 +156,7 @@ const Index = () => {
               <Trophy className="h-6 w-6 text-blue-600" />
               <span className="text-xl font-bold text-gray-900">PlaySwiftPay</span>
             </div>
-            <p className="text-gray-600">
-              Digital tournament management platform with 100% online payments.
-            </p>
+            <p className="text-gray-600">Digital tournament management platform with 100% online payments.</p>
           </div>
           <div>
             <h4 className="font-semibold mb-4 text-gray-900">Platform</h4>
@@ -171,9 +183,48 @@ const Index = () => {
           </div>
         </div>
         <div className="border-t border-gray-200 mt-8 pt-8 text-center text-gray-500">
-          <p>&copy; 2024 PlaySwiftPay. All rights reserved. Built for Kongu Engineering College - ISTE Student Chapter</p>
+          <p>&copy; 2025 PlaySwiftPay. All rights reserved. Built for Kongu Engineering College </p>
         </div>
       </footer>
+
+      {/* Floating Chatbot */}
+      <div className="fixed bottom-6 right-6 z-50">
+        {chatOpen ? (
+          <div className="bg-white shadow-2xl rounded-xl w-80 h-96 flex flex-col border border-gray-200">
+            <div className="flex justify-between items-center bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-3 rounded-t-xl">
+              <span className="font-semibold">Tournament Pro Assistant</span>
+              <button onClick={() => setChatOpen(false)}>
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="flex-1 p-3 overflow-y-auto space-y-2 text-sm">
+              {messages.map((msg, i) => (
+                <div key={i} className={`p-2 rounded-lg max-w-[75%] ${msg.from === "user" ? "bg-blue-100 ml-auto text-gray-900" : "bg-gray-100 mr-auto text-gray-800"}`}>
+                  {msg.text}
+                </div>
+              ))}
+            </div>
+            <div className="p-3 border-t flex gap-2">
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                placeholder="Ask me..."
+                className="flex-1 border rounded-lg px-2 py-1 text-sm"
+              />
+              <Button size="sm" onClick={handleSend}>Send</Button>
+            </div>
+          </div>
+        ) : (
+          <Button 
+            onClick={() => setChatOpen(true)} 
+            className="rounded-full w-14 h-14 flex items-center justify-center bg-gradient-to-r from-blue-600 to-indigo-600 shadow-lg hover:from-blue-700 hover:to-indigo-700"
+          >
+            <MessageCircle className="h-6 w-6 text-white" />
+          </Button>
+        )}
+      </div>
     </div>
   );
 };

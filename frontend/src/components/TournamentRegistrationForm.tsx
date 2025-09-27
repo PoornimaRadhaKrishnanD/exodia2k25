@@ -15,7 +15,12 @@ import {
   Award, 
   Calendar, 
   CreditCard,
-  Loader2
+  Loader2,
+  Smartphone,
+  QrCode,
+  ExternalLink,
+  Check,
+  Copy
 } from "lucide-react";
 
 interface TournamentRegistrationFormProps {
@@ -57,6 +62,7 @@ interface RegistrationFormData {
   
   // Payment Information
   paymentMethod: string;
+  selectedUpiApp: string;
   agreeTerms: boolean;
 }
 
@@ -87,6 +93,7 @@ const TournamentRegistrationForm: React.FC<TournamentRegistrationFormProps> = ({
     howDidYouHear: '',
     additionalComments: '',
     paymentMethod: 'card',
+    selectedUpiApp: '',
     agreeTerms: false
   });
 
@@ -94,6 +101,138 @@ const TournamentRegistrationForm: React.FC<TournamentRegistrationFormProps> = ({
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 4;
   const { toast } = useToast();
+
+  // UPI Apps Configuration with specific UPI strings
+  const upiApps = [
+    { 
+      id: "googlepay", 
+      name: "Google Pay", 
+      logo: "🟢", 
+      deepLink: "tez://upi/pay",
+      upiId: "merchant@okaxis" // Google Pay specific
+    },
+    { 
+      id: "phonepe", 
+      name: "PhonePe", 
+      logo: "🟣", 
+      deepLink: "phonepe://pay",
+      upiId: "merchant@ybl" // PhonePe specific
+    },
+    { 
+      id: "paytm", 
+      name: "Paytm", 
+      logo: "🔵", 
+      deepLink: "paytmmp://pay",
+      upiId: "merchant@paytm" // Paytm specific
+    },
+    { 
+      id: "bhim", 
+      name: "BHIM", 
+      logo: "🟠", 
+      deepLink: "bhim://pay",
+      upiId: "merchant@upi" // BHIM specific
+    },
+    { 
+      id: "amazonpay", 
+      name: "Amazon Pay", 
+      logo: "🟡", 
+      deepLink: "amazonpay://pay",
+      upiId: "merchant@apl" // Amazon Pay specific
+    },
+    { 
+      id: "mobikwik", 
+      name: "MobiKwik", 
+      logo: "🔴", 
+      deepLink: "mobikwik://pay",
+      upiId: "merchant@ikwik" // MobiKwik specific
+    }
+  ];
+
+  console.log("🔧 UPI Apps loaded:", upiApps.length);
+
+  // Generate app-specific UPI string
+  const generateAppSpecificUPIString = (app: any) => {
+    if (!tournament || !app) return "";
+    
+    const merchantName = "PlaySwiftPay";
+    const amount = tournament.entryFee || 0;
+    const transactionId = `TXN_${app.id.toUpperCase()}_${Date.now()}`;
+    
+    return `upi://pay?pa=${app.upiId}&pn=${merchantName}&am=${amount}&cu=INR&tn=Tournament Registration ${tournament.name}&tr=${transactionId}`;
+  };
+
+  // Generate QR code data URL (simple implementation)
+  const generateQRCodeDataURL = (upiString: string) => {
+    // Using a simple QR code API service
+    const encodedUPI = encodeURIComponent(upiString);
+    return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodedUPI}`;
+  };
+
+  // Handle UPI App Selection and Payment
+  const handleUPIAppPayment = (appId: string) => {
+    const selectedApp = upiApps.find(app => app.id === appId);
+    if (!selectedApp || !tournament) return;
+
+    setFormData(prev => ({ ...prev, selectedUpiApp: appId }));
+    
+    // Generate UPI payment string
+    const merchantVPA = "merchant@paytm"; // Replace with actual merchant VPA
+    const merchantName = "PlaySwiftPay";
+    const amount = tournament?.entryFee || 0;
+    const transactionId = `TXN_${Date.now()}`;
+    const upiString = `upi://pay?pa=${merchantVPA}&pn=${merchantName}&am=${amount}&cu=INR&tn=Tournament Registration ${tournament?.name}&tr=${transactionId}`;
+    
+    console.log("🚀 Opening UPI app:", selectedApp.name, "Amount:", amount);
+    
+    toast({
+      title: `Opening ${selectedApp.name}...`,
+      description: `Redirecting to ${selectedApp.name} for payment of ₹${tournament.entryFee}`,
+    });
+
+    // Try to open the UPI app with multiple fallback methods
+    const attemptUPIRedirect = () => {
+      // Method 1: Try app-specific deep link
+      try {
+        const appSpecificLink = `${selectedApp.deepLink}?${upiString.split('?')[1]}`;
+        console.log("🔗 App-specific link:", appSpecificLink);
+        window.location.href = appSpecificLink;
+        return true;
+      } catch (error) {
+        console.log("❌ App-specific link failed:", error);
+      }
+
+      // Method 2: Try generic UPI link
+      try {
+        console.log("🔗 Generic UPI link:", upiString);
+        window.location.href = upiString;
+        return true;
+      } catch (error) {
+        console.log("❌ Generic UPI link failed:", error);
+      }
+
+      return false;
+    };
+
+    // Attempt redirection
+    const redirectSuccess = attemptUPIRedirect();
+    
+    if (!redirectSuccess) {
+      // Show fallback options
+      toast({
+        title: "UPI App Not Found",
+        description: `Please install ${selectedApp.name} or use another UPI app. You can also manually enter the UPI ID: ${merchantVPA}`,
+        variant: "destructive",
+      });
+    } else {
+      // Show success message and guidance
+      setTimeout(() => {
+        toast({
+          title: "Payment Initiated",
+          description: `Complete the payment in ${selectedApp.name} and return here to finish registration`,
+        });
+      }, 2000);
+    }
+  };
 
   // Pre-populate user data from localStorage
   useEffect(() => {
@@ -508,6 +647,176 @@ const TournamentRegistrationForm: React.FC<TournamentRegistrationFormProps> = ({
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* UPI Apps Selection - Show when UPI is selected */}
+              {formData.paymentMethod === 'upi' && (
+                <div className="space-y-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Smartphone className="h-5 w-5 text-green-600" />
+                      <span className="font-medium text-green-900">Choose Payment Method</span>
+                    </div>
+                    <div className="text-lg font-bold text-green-700">₹{tournament?.entryFee}</div>
+                  </div>
+                  
+                  {/* UPI Apps Grid */}
+                  <div>
+                    <p className="text-sm font-medium text-gray-700 mb-3">Select your preferred UPI app:</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      {upiApps.map((app) => (
+                        <button
+                          key={app.id}
+                          type="button"
+                          onClick={() => handleUPIAppPayment(app.id)}
+                          className={`p-3 border-2 rounded-lg flex items-center gap-2 hover:shadow-md transition-all ${
+                            formData.selectedUpiApp === app.id 
+                              ? 'border-green-500 bg-green-100' 
+                              : 'border-gray-200 hover:border-green-300 bg-white'
+                          }`}
+                        >
+                          <span className="text-xl">{app.logo}</span>
+                          <div className="text-left flex-1">
+                            <div className="font-medium text-sm">{app.name}</div>
+                            <div className="text-xs text-gray-500">Tap to pay ₹{tournament?.entryFee}</div>
+                          </div>
+                          {formData.selectedUpiApp === app.id ? (
+                            <Check className="h-4 w-4 text-green-600" />
+                          ) : (
+                            <ExternalLink className="h-3 w-3 text-gray-400" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Show QR Code for Selected UPI App Only */}
+                  {formData.selectedUpiApp && (
+                    <div className="border-t border-green-300 pt-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <QrCode className="h-4 w-4 text-green-600" />
+                        <span className="text-sm font-medium text-green-800">
+                          QR Code for {upiApps.find(app => app.id === formData.selectedUpiApp)?.name}
+                        </span>
+                      </div>
+                      
+                      {(() => {
+                        const selectedApp = upiApps.find(app => app.id === formData.selectedUpiApp);
+                        if (!selectedApp) return null;
+                        
+                        const upiString = generateAppSpecificUPIString(selectedApp);
+                        const qrCodeURL = generateQRCodeDataURL(upiString);
+                        
+                        return (
+                          <div className="bg-white border border-gray-200 rounded-lg p-6 text-center max-w-sm mx-auto">
+                            {/* App Header */}
+                            <div className="flex items-center justify-center gap-2 mb-4">
+                              <span className="text-2xl">{selectedApp.logo}</span>
+                              <div className="text-left">
+                                <div className="font-medium text-lg">{selectedApp.name}</div>
+                                <div className="text-sm text-gray-600">Payment QR Code</div>
+                              </div>
+                            </div>
+                            
+                            {/* Large QR Code */}
+                            <div className="w-48 h-48 mx-auto mb-4 border border-gray-200 rounded-lg overflow-hidden">
+                              <img 
+                                src={qrCodeURL} 
+                                alt={`${selectedApp.name} QR Code`}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  // Fallback to placeholder if QR generation fails
+                                  e.currentTarget.style.display = 'none';
+                                  e.currentTarget.nextElementSibling.style.display = 'flex';
+                                }}
+                              />
+                              {/* Fallback placeholder */}
+                              <div className="w-full h-full bg-gray-100 border-2 border-dashed border-gray-300 rounded hidden items-center justify-center">
+                                <QrCode className="h-12 w-12 text-gray-400" />
+                              </div>
+                            </div>
+                            
+                            {/* Payment Amount */}
+                            <div className="mb-4">
+                              <div className="text-2xl font-bold text-green-600">₹{tournament?.entryFee}</div>
+                              <div className="text-sm text-gray-600">Tournament Registration Fee</div>
+                            </div>
+                            
+                            {/* Action Buttons */}
+                            <div className="flex gap-2 justify-center">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(upiString);
+                                  toast({
+                                    title: "UPI Details Copied",
+                                    description: `${selectedApp.name} payment details copied to clipboard`,
+                                  });
+                                }}
+                                className="px-4 py-2 bg-blue-50 text-blue-600 rounded-md hover:bg-blue-100 flex items-center gap-2 text-sm"
+                              >
+                                <Copy className="h-4 w-4" />
+                                Copy UPI Details
+                              </button>
+                              
+                              <button
+                                type="button"
+                                onClick={() => setFormData(prev => ({ ...prev, selectedUpiApp: '' }))}
+                                className="px-4 py-2 bg-gray-50 text-gray-600 rounded-md hover:bg-gray-100 text-sm"
+                              >
+                                Change App
+                              </button>
+                            </div>
+                            
+                            <p className="text-xs text-gray-500 mt-3">
+                              Scan this QR code with {selectedApp.name} or any UPI app to pay
+                            </p>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
+                  
+                  {/* Generic QR Code Alternative when no app is selected */}
+                  {!formData.selectedUpiApp && (
+                    <div className="border-t border-green-300 pt-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <QrCode className="h-4 w-4 text-green-600" />
+                        <span className="text-sm font-medium text-green-800">Or scan QR code with any UPI app</span>
+                      </div>
+                      <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                        <div className="w-32 h-32 bg-gray-100 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center mx-auto">
+                          <div className="text-center">
+                            <QrCode className="h-8 w-8 text-gray-400 mx-auto mb-1" />
+                            <p className="text-xs text-gray-500">Select a UPI app</p>
+                            <p className="text-xs text-gray-400">to see QR code</p>
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-600 mt-2">Choose a UPI app above to generate QR code</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {formData.selectedUpiApp && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                      <div className="flex items-center gap-2">
+                        <Check className="h-4 w-4 text-blue-600" />
+                        <span className="text-sm font-medium text-blue-900">
+                          Selected: {upiApps.find(app => app.id === formData.selectedUpiApp)?.name}
+                        </span>
+                      </div>
+                      <p className="text-xs text-blue-800 mt-1">
+                        App will open automatically. Complete payment and return here to finish registration.
+                      </p>
+                    </div>
+                  )}
+                  
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                    <p className="text-xs text-yellow-800">
+                      <strong>Note:</strong> Clicking a UPI app will redirect you to complete the payment. Make sure you have the app installed on your device.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="howDidYouHear">How did you hear about this tournament?</Label>

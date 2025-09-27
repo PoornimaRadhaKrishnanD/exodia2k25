@@ -18,6 +18,10 @@ import {
   DollarSign,
   Check,
   AlertCircle,
+  Building2,
+  Smartphone,
+  QrCode,
+  ExternalLink,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -50,13 +54,111 @@ const Payment = () => {
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("card");
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("upi-apps");
+  const [showQRCode, setShowQRCode] = useState(false);
+
+  // Debug logging
+  console.log("Payment component rendered:", {
+    selectedPaymentMethod,
+    tournament: tournament ? `${tournament.name} - ₹${tournament.entryFee}` : null,
+    loading
+  });
+
+  // UPI Apps Configuration
+  const upiApps = [
+    {
+      id: "googlepay",
+      name: "Google Pay",
+      logo: "🟢",
+      deepLink: "tez://upi/pay",
+      color: "bg-green-600"
+    },
+    {
+      id: "phonepe",
+      name: "PhonePe", 
+      logo: "🟣",
+      deepLink: "phonepe://pay",
+      color: "bg-purple-600"
+    },
+    {
+      id: "paytm",
+      name: "Paytm",
+      logo: "🔵", 
+      deepLink: "paytmmp://pay",
+      color: "bg-blue-600"
+    },
+    {
+      id: "bhim",
+      name: "BHIM",
+      logo: "🟠",
+      deepLink: "bhim://pay",
+      color: "bg-orange-600"
+    },
+    {
+      id: "amazonpay",
+      name: "Amazon Pay",
+      logo: "🟡",
+      deepLink: "amazonpay://pay", 
+      color: "bg-yellow-600"
+    },
+    {
+      id: "mobikwik",
+      name: "MobiKwik",
+      logo: "🔴",
+      deepLink: "mobikwik://pay",
+      color: "bg-red-600"
+    }
+  ];
+
+  // Debug UPI apps
+  console.log("UPI Apps available:", upiApps.length, upiApps.map(app => app.name));
+
+  // Generate UPI Payment String
+  const generateUPIString = () => {
+    const merchantVPA = "merchant@paytm"; // Replace with actual merchant VPA
+    const merchantName = "PlaySwiftPay";
+    const amount = tournament?.entryFee || 0;
+    const transactionId = `TXN_${Date.now()}`;
+    
+    return `upi://pay?pa=${merchantVPA}&pn=${merchantName}&am=${amount}&cu=INR&tn=Tournament Registration ${tournament?.name}&tr=${transactionId}`;
+  };
+
+  // Handle UPI App Selection and Payment
+  const handleUPIAppPayment = (appId: string) => {
+    const selectedApp = upiApps.find(app => app.id === appId);
+    if (!selectedApp || !tournament) return;
+
+    setPaymentData(prev => ({ ...prev, selectedUpiApp: appId }));
+    
+    const upiString = generateUPIString();
+    const appDeepLink = `${selectedApp.deepLink}?${upiString.split('?')[1]}`;
+    
+    toast({
+      title: `Opening ${selectedApp.name}...`,
+      description: `Redirecting to ${selectedApp.name} for payment of ₹${tournament.entryFee}`,
+    });
+
+    // Try to open the UPI app
+    try {
+      window.location.href = appDeepLink;
+    } catch (error) {
+      // Fallback to web UPI or show instructions
+      toast({
+        title: "UPI App Not Found",
+        description: `Please install ${selectedApp.name} or use another UPI app to scan the QR code`,
+        variant: "destructive",
+      });
+    }
+  };
   const [paymentData, setPaymentData] = useState({
     cardNumber: "",
     expiryDate: "",
     cvv: "",
     cardHolder: "",
     upiId: "",
+    selectedUpiApp: "",
+    bankName: "",
+    walletProvider: "",
   });
 
   const paymentMethods: PaymentMethod[] = [
@@ -67,10 +169,34 @@ const Payment = () => {
       description: "Pay securely with your card",
     },
     {
-      id: "upi",
-      name: "UPI Payment",
+      id: "upi-apps",
+      name: "UPI Apps",
+      icon: <Smartphone className="h-5 w-5" />,
+      description: "Pay directly through UPI apps",
+    },
+    {
+      id: "upi-qr",
+      name: "UPI QR Code",
+      icon: <QrCode className="h-5 w-5" />,
+      description: "Scan QR code to pay via any UPI app",
+    },
+    {
+      id: "upi-id",
+      name: "UPI ID",
       icon: <Wallet className="h-5 w-5" />,
-      description: "Pay using UPI ID or QR code",
+      description: "Pay using UPI ID",
+    },
+    {
+      id: "netbanking",
+      name: "Net Banking",
+      icon: <Building2 className="h-5 w-5" />,
+      description: "Pay through your bank account",
+    },
+    {
+      id: "wallet",
+      name: "Digital Wallet",
+      icon: <Wallet className="h-5 w-5" />,
+      description: "Paytm, PhonePe, Google Pay wallet",
     },
   ];
 
@@ -181,7 +307,19 @@ const Payment = () => {
         });
         return false;
       }
-    } else if (selectedPaymentMethod === "upi") {
+    } else if (selectedPaymentMethod === "upi-apps") {
+      if (!paymentData.selectedUpiApp) {
+        toast({
+          title: "UPI App Selection Required",
+          description: "Please select a UPI app to proceed",
+          variant: "destructive",
+        });
+        return false;
+      }
+    } else if (selectedPaymentMethod === "upi-qr") {
+      // QR code payment doesn't need validation as it's scan-based
+      return true;
+    } else if (selectedPaymentMethod === "upi-id") {
       if (!paymentData.upiId) {
         toast({
           title: "UPI ID Required",
@@ -195,6 +333,24 @@ const Payment = () => {
         toast({
           title: "Invalid UPI ID",
           description: "Please enter a valid UPI ID",
+          variant: "destructive",
+        });
+        return false;
+      }
+    } else if (selectedPaymentMethod === "netbanking") {
+      if (!paymentData.bankName) {
+        toast({
+          title: "Bank Selection Required",
+          description: "Please select your bank",
+          variant: "destructive",
+        });
+        return false;
+      }
+    } else if (selectedPaymentMethod === "wallet") {
+      if (!paymentData.walletProvider) {
+        toast({
+          title: "Wallet Provider Required",
+          description: "Please select your wallet provider",
           variant: "destructive",
         });
         return false;
@@ -404,6 +560,17 @@ const Payment = () => {
               {/* Card Payment Form */}
               {selectedPaymentMethod === "card" && (
                 <div className="space-y-4">
+                  {/* Amount Display for Card */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <CreditCard className="h-5 w-5 text-blue-600" />
+                        <span className="font-medium text-blue-900">Amount to Charge</span>
+                      </div>
+                      <div className="text-2xl font-bold text-blue-700">₹{tournament.entryFee}</div>
+                    </div>
+                  </div>
+                  
                   <div>
                     <Label htmlFor="cardNumber">Card Number</Label>
                     <Input
@@ -451,9 +618,195 @@ const Payment = () => {
                 </div>
               )}
 
-              {/* UPI Payment Form */}
-              {selectedPaymentMethod === "upi" && (
+              {/* UPI Apps Payment Form */}
+              {selectedPaymentMethod === "upi-apps" && (
                 <div className="space-y-4">
+                  {/* Amount Display */}
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Smartphone className="h-5 w-5 text-green-600" />
+                        <span className="font-medium text-green-900">Amount to Pay</span>
+                      </div>
+                      <div className="text-2xl font-bold text-green-700">
+                        {tournament ? `₹${tournament.entryFee}` : "₹1000"}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-base font-medium mb-3 block">Choose your preferred UPI App:</Label>
+                    
+                    {/* UPI Apps Grid - Always show */}
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                      {[
+                        { id: "googlepay", name: "Google Pay", logo: "🟢", color: "green" },
+                        { id: "phonepe", name: "PhonePe", logo: "🟣", color: "purple" },
+                        { id: "paytm", name: "Paytm", logo: "🔵", color: "blue" },
+                        { id: "bhim", name: "BHIM", logo: "🟠", color: "orange" },
+                        { id: "amazonpay", name: "Amazon Pay", logo: "🟡", color: "yellow" },
+                        { id: "mobikwik", name: "MobiKwik", logo: "🔴", color: "red" }
+                      ].map((app) => (
+                        <button
+                          key={app.id}
+                          type="button"
+                          onClick={() => {
+                            setPaymentData(prev => ({ ...prev, selectedUpiApp: app.id }));
+                            toast({
+                              title: `${app.name} Selected`,
+                              description: `Click the payment button below to pay via ${app.name}`,
+                            });
+                          }}
+                          className={`p-4 border-2 rounded-lg flex items-center gap-3 hover:shadow-md transition-all ${
+                            paymentData.selectedUpiApp === app.id 
+                              ? 'border-green-500 bg-green-50' 
+                              : 'border-gray-200 hover:border-green-300'
+                          }`}
+                        >
+                          <span className="text-2xl">{app.logo}</span>
+                          <div className="text-left">
+                            <div className="font-medium">{app.name}</div>
+                            <div className="text-sm text-gray-500">
+                              Tap to select
+                            </div>
+                          </div>
+                          {paymentData.selectedUpiApp === app.id && (
+                            <Check className="h-4 w-4 text-green-600 ml-auto" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                    
+                    {/* Selected App Display */}
+                    {paymentData.selectedUpiApp && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Check className="h-5 w-5 text-blue-600" />
+                          <span className="font-medium text-blue-900">
+                            Selected: {[
+                              { id: "googlepay", name: "Google Pay" },
+                              { id: "phonepe", name: "PhonePe" },
+                              { id: "paytm", name: "Paytm" },
+                              { id: "bhim", name: "BHIM" },
+                              { id: "amazonpay", name: "Amazon Pay" },
+                              { id: "mobikwik", name: "MobiKwik" }
+                            ].find(app => app.id === paymentData.selectedUpiApp)?.name}
+                          </span>
+                        </div>
+                        <div className="text-sm text-blue-800">
+                          <p>Click the payment button below to complete your transaction.</p>
+                          <p className="mt-1">Amount: <strong>{tournament ? `₹${tournament.entryFee}` : "₹1000"}</strong></p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* UPI QR Code Payment Form */}
+              {selectedPaymentMethod === "upi-qr" && (
+                <div className="space-y-4">
+                  {/* Amount Display */}
+                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <QrCode className="h-5 w-5 text-purple-600" />
+                        <span className="font-medium text-purple-900">Scan & Pay</span>
+                      </div>
+                      <div className="text-2xl font-bold text-purple-700">₹{tournament.entryFee}</div>
+                    </div>
+                  </div>
+
+                  <div className="text-center">
+                    <div className="bg-white border-2 border-gray-300 rounded-lg p-8 inline-block">
+                      {/* QR Code Placeholder - In real implementation, use a QR library */}
+                      <div className="w-48 h-48 bg-gray-100 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center relative">
+                        <div className="text-center">
+                          <QrCode className="h-16 w-16 text-gray-400 mx-auto mb-2" />
+                          <p className="text-sm text-gray-500">QR Code</p>
+                          <p className="text-xs text-gray-400 mt-1">₹{tournament.entryFee}</p>
+                        </div>
+                        {/* QR Code Pattern Simulation */}
+                        <div className="absolute inset-0 opacity-20">
+                          <div className="grid grid-cols-12 gap-0.5 h-full w-full p-2">
+                            {Array.from({ length: 144 }).map((_, i) => (
+                              <div
+                                key={i}
+                                className={`${
+                                  Math.random() > 0.5 ? 'bg-black' : 'bg-transparent'
+                                } aspect-square`}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* UPI String Display */}
+                    <div className="mt-4 p-3 bg-gray-50 rounded-lg border">
+                      <p className="text-xs text-gray-600 font-mono break-all">
+                        {generateUPIString()}
+                      </p>
+                    </div>
+                    
+                    {/* Quick UPI App Links */}
+                    <div className="mt-4">
+                      <p className="text-sm text-gray-600 mb-2">Quick Pay Options:</p>
+                      <div className="flex justify-center gap-2 flex-wrap">
+                        {upiApps.slice(0, 4).map((app) => (
+                          <button
+                            key={app.id}
+                            onClick={() => handleUPIAppPayment(app.id)}
+                            className="px-3 py-1 text-xs bg-white border border-gray-300 rounded-full hover:bg-gray-50 transition-colors"
+                          >
+                            {app.logo} {app.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="h-5 w-5 text-purple-600 mt-0.5" />
+                      <div className="text-sm text-purple-800">
+                        <p className="font-medium mb-1">QR Payment Instructions:</p>
+                        <ul className="list-disc list-inside space-y-1">
+                          <li>Open any UPI app (Google Pay, PhonePe, Paytm, etc.)</li>
+                          <li>Scan the QR code above</li>
+                          <li>Verify amount: ₹{tournament.entryFee}</li>
+                          <li>Complete the payment</li>
+                          <li>Screenshot the success message for reference</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Button
+                    type="button"
+                    onClick={() => setShowQRCode(!showQRCode)}
+                    variant="outline"
+                    className="w-full"
+                  >
+                    {showQRCode ? "Hide" : "Generate New"} QR Code
+                  </Button>
+                </div>
+              )}
+
+              {/* UPI ID Payment Form */}
+              {selectedPaymentMethod === "upi-id" && (
+                <div className="space-y-4">
+                  {/* Amount Display for UPI */}
+                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="h-5 w-5 text-orange-600" />
+                        <span className="font-medium text-orange-900">Amount to Pay</span>
+                      </div>
+                      <div className="text-2xl font-bold text-orange-700">₹{tournament.entryFee}</div>
+                    </div>
+                  </div>
+                  
                   <div>
                     <Label htmlFor="upiId">UPI ID</Label>
                     <Input
@@ -463,15 +816,116 @@ const Payment = () => {
                       onChange={(e) => handlePaymentDataChange("upiId", e.target.value)}
                     />
                   </div>
+                  
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                     <div className="flex items-start gap-2">
                       <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
                       <div className="text-sm text-blue-800">
-                        <p className="font-medium mb-1">UPI Payment Instructions:</p>
+                        <p className="font-medium mb-1">UPI ID Payment Instructions:</p>
                         <ul className="list-disc list-inside space-y-1">
                           <li>Enter your UPI ID (e.g., yourname@paytm)</li>
-                          <li>You will receive a payment request</li>
+                          <li>You will receive a payment request for ₹{tournament.entryFee}</li>
                           <li>Approve the payment in your UPI app</li>
+                          <li>Registration will be confirmed automatically</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Net Banking Payment Form */}
+              {selectedPaymentMethod === "netbanking" && (
+                <div className="space-y-4">
+                  {/* Amount Display for Net Banking */}
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="h-5 w-5 text-green-600" />
+                        <span className="font-medium text-green-900">Amount to Transfer</span>
+                      </div>
+                      <div className="text-2xl font-bold text-green-700">₹{tournament.entryFee}</div>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="bankName">Select Your Bank</Label>
+                    <select
+                      id="bankName"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                      value={paymentData.bankName}
+                      onChange={(e) => handlePaymentDataChange("bankName", e.target.value)}
+                    >
+                      <option value="">Select your bank</option>
+                      <option value="sbi">State Bank of India</option>
+                      <option value="hdfc">HDFC Bank</option>
+                      <option value="icici">ICICI Bank</option>
+                      <option value="axis">Axis Bank</option>
+                      <option value="kotak">Kotak Mahindra Bank</option>
+                      <option value="pnb">Punjab National Bank</option>
+                      <option value="other">Other Banks</option>
+                    </select>
+                  </div>
+                  
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="h-5 w-5 text-green-600 mt-0.5" />
+                      <div className="text-sm text-green-800">
+                        <p className="font-medium mb-1">Net Banking Instructions:</p>
+                        <ul className="list-disc list-inside space-y-1">
+                          <li>You will be redirected to your bank's website</li>
+                          <li>Login with your net banking credentials</li>
+                          <li>Authorize the payment of ₹{tournament.entryFee}</li>
+                          <li>Return to complete your registration</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Digital Wallet Payment Form */}
+              {selectedPaymentMethod === "wallet" && (
+                <div className="space-y-4">
+                  {/* Amount Display for Digital Wallet */}
+                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Smartphone className="h-5 w-5 text-purple-600" />
+                        <span className="font-medium text-purple-900">Wallet Payment</span>
+                      </div>
+                      <div className="text-2xl font-bold text-purple-700">₹{tournament.entryFee}</div>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="walletProvider">Select Wallet Provider</Label>
+                    <select
+                      id="walletProvider"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                      value={paymentData.walletProvider}
+                      onChange={(e) => handlePaymentDataChange("walletProvider", e.target.value)}
+                    >
+                      <option value="">Select wallet provider</option>
+                      <option value="paytm">Paytm</option>
+                      <option value="phonepe">PhonePe</option>
+                      <option value="googlepay">Google Pay</option>
+                      <option value="amazonpay">Amazon Pay</option>
+                      <option value="freecharge">FreeCharge</option>
+                      <option value="mobikwik">MobiKwik</option>
+                    </select>
+                  </div>
+                  
+                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="h-5 w-5 text-purple-600 mt-0.5" />
+                      <div className="text-sm text-purple-800">
+                        <p className="font-medium mb-1">Digital Wallet Instructions:</p>
+                        <ul className="list-disc list-inside space-y-1">
+                          <li>You will be redirected to your wallet app</li>
+                          <li>Confirm the payment of ₹{tournament.entryFee}</li>
+                          <li>Complete authentication (PIN/Fingerprint)</li>
+                          <li>You'll be redirected back automatically</li>
                         </ul>
                       </div>
                     </div>
@@ -491,18 +945,82 @@ const Payment = () => {
               <Button
                 onClick={processPayment}
                 disabled={processing}
-                className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold py-3"
+                className={`w-full font-semibold py-3 transition-all duration-200 ${
+                  selectedPaymentMethod === "upi-apps" 
+                    ? "bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800" 
+                    : selectedPaymentMethod === "upi-qr"
+                    ? "bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800"
+                    : selectedPaymentMethod === "upi-id"
+                    ? "bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800"
+                    : selectedPaymentMethod === "netbanking"
+                    ? "bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800"
+                    : selectedPaymentMethod === "wallet"
+                    ? "bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800"
+                    : "bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
+                } text-white`}
                 size="lg"
               >
                 {processing ? (
                   <div className="flex items-center gap-2">
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    Processing Payment...
+                    {selectedPaymentMethod === "upi-apps" && `Opening ${upiApps.find(app => app.id === paymentData.selectedUpiApp)?.name || 'UPI App'}...`}
+                    {selectedPaymentMethod === "upi-qr" && "Processing QR Payment..."}
+                    {selectedPaymentMethod === "upi-id" && "Sending UPI Request..."}
+                    {selectedPaymentMethod === "card" && "Processing Card Payment..."}
+                    {selectedPaymentMethod === "netbanking" && "Redirecting to Bank..."}
+                    {selectedPaymentMethod === "wallet" && "Opening Wallet App..."}
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
-                    <Check className="h-4 w-4" />
-                    Pay ₹{tournament.entryFee} & Register
+                    {selectedPaymentMethod === "upi-apps" && paymentData.selectedUpiApp && (
+                      <>
+                        <Smartphone className="h-4 w-4" />
+                        Pay ₹{tournament?.entryFee || "1000"} via {[
+                          { id: "googlepay", name: "Google Pay" },
+                          { id: "phonepe", name: "PhonePe" },
+                          { id: "paytm", name: "Paytm" },
+                          { id: "bhim", name: "BHIM" },
+                          { id: "amazonpay", name: "Amazon Pay" },
+                          { id: "mobikwik", name: "MobiKwik" }
+                        ].find(app => app.id === paymentData.selectedUpiApp)?.name}
+                      </>
+                    )}
+                    {selectedPaymentMethod === "upi-apps" && !paymentData.selectedUpiApp && (
+                      <>
+                        <Smartphone className="h-4 w-4" />
+                        Select UPI App Above
+                      </>
+                    )}
+                    {selectedPaymentMethod === "upi-qr" && (
+                      <>
+                        <QrCode className="h-4 w-4" />
+                        Pay ₹{tournament.entryFee} via QR Code
+                      </>
+                    )}
+                    {selectedPaymentMethod === "upi-id" && (
+                      <>
+                        <Wallet className="h-4 w-4" />
+                        Pay ₹{tournament.entryFee} via UPI ID
+                      </>
+                    )}
+                    {selectedPaymentMethod === "card" && (
+                      <>
+                        <CreditCard className="h-4 w-4" />
+                        Pay ₹{tournament.entryFee} via Card
+                      </>
+                    )}
+                    {selectedPaymentMethod === "netbanking" && (
+                      <>
+                        <Building2 className="h-4 w-4" />
+                        Pay ₹{tournament.entryFee} via Net Banking
+                      </>
+                    )}
+                    {selectedPaymentMethod === "wallet" && (
+                      <>
+                        <Smartphone className="h-4 w-4" />
+                        Pay ₹{tournament.entryFee} via Wallet
+                      </>
+                    )}
                   </div>
                 )}
               </Button>
