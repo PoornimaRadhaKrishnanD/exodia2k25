@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Trophy, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import NotificationService from "@/services/notificationService";
 
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -60,6 +61,9 @@ const Login = () => {
       // Store authentication token and user data
       localStorage.setItem('authToken', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
+
+      // Add login notification
+      NotificationService.addLoginNotification(data.user);
 
       toast({ title: "Login Successful!", description: `Welcome back, ${data.user.name}!` });
       navigate("/dashboard");

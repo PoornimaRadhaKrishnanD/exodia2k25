@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import NotificationDropdown from "@/components/NotificationDropdown";
 import { 
   Trophy, 
   Calendar, 
@@ -11,7 +12,6 @@ import {
   Users, 
   Settings, 
   Plus,
-  Bell,
   LogOut,
   Star,
   DollarSign,
@@ -173,12 +173,12 @@ const UserDashboard = () => {
             <span className="text-2xl font-bold text-primary">PlaySwiftPay</span>
           </div>
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon">
-              <Bell className="h-5 w-5" />
-            </Button>
-            <Button variant="ghost" size="icon">
-              <Settings className="h-5 w-5" />
-            </Button>
+            <NotificationDropdown />
+            <Link to="/profile-settings">
+              <Button variant="ghost" size="icon">
+                <Settings className="h-5 w-5" />
+              </Button>
+            </Link>
             <Button onClick={handleLogout} variant="outline">
               <LogOut className="h-4 w-4 mr-2" />
               Logout

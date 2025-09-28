@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Trophy, Users, DollarSign, Calendar,Plus,Edit,Trash2,Eye,Settings,LogOut,TrendingUp,Activity} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import NotificationDropdown from "@/components/NotificationDropdown";
 const AdminDashboard = () => {
   const [tournaments, setTournaments] = useState([]);
   const [stats, setStats] = useState({
@@ -156,6 +157,7 @@ const AdminDashboard = () => {
                 Create Tournament
               </Button>
             </Link>
+            <NotificationDropdown />
             <Button variant="ghost" size="icon" className="text-gray-600 hover:text-gray-900">
               <Settings className="h-5 w-5" />
             </Button>

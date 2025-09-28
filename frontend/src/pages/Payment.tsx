@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import QRCode from "qrcode";
 import {
   CreditCard,
   Wallet,
@@ -56,6 +57,8 @@ const Payment = () => {
   const [processing, setProcessing] = useState(false);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("upi-apps");
   const [showQRCode, setShowQRCode] = useState(false);
+  const [qrCodeDataURL, setQrCodeDataURL] = useState<string>("");
+  const [qrCodeLoading, setQrCodeLoading] = useState(false);
 
   // Debug logging
   console.log("Payment component rendered:", {
@@ -122,6 +125,40 @@ const Payment = () => {
     
     return `upi://pay?pa=${merchantVPA}&pn=${merchantName}&am=${amount}&cu=INR&tn=Tournament Registration ${tournament?.name}&tr=${transactionId}`;
   };
+
+  // Generate QR Code
+  const generateQRCode = async (upiString: string) => {
+    setQrCodeLoading(true);
+    try {
+      const qrCodeDataURL = await QRCode.toDataURL(upiString, {
+        width: 300,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        },
+        errorCorrectionLevel: 'M'
+      });
+      setQrCodeDataURL(qrCodeDataURL);
+    } catch (error) {
+      console.error('Error generating QR code:', error);
+      toast({
+        title: "QR Code Generation Failed",
+        description: "Unable to generate QR code. Please try another payment method.",
+        variant: "destructive",
+      });
+    } finally {
+      setQrCodeLoading(false);
+    }
+  };
+
+  // Generate QR code when UPI QR payment method is selected
+  useEffect(() => {
+    if (selectedPaymentMethod === "upi-qr" && tournament) {
+      const upiString = generateUPIString();
+      generateQRCode(upiString);
+    }
+  }, [selectedPaymentMethod, tournament]);
 
   // Handle UPI App Selection and Payment
   const handleUPIAppPayment = (appId: string) => {
