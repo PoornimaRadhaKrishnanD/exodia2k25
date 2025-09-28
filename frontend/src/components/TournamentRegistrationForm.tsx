@@ -63,6 +63,14 @@ interface RegistrationFormData {
   // Payment Information
   paymentMethod: string;
   selectedUpiApp: string;
+  
+  // Card Payment Information
+  cardNumber: string;
+  cardHolderName: string;
+  expiryMonth: string;
+  expiryYear: string;
+  cvv: string;
+  
   agreeTerms: boolean;
 }
 
@@ -94,6 +102,14 @@ const TournamentRegistrationForm: React.FC<TournamentRegistrationFormProps> = ({
     additionalComments: '',
     paymentMethod: 'card',
     selectedUpiApp: '',
+    
+    // Card Payment Information
+    cardNumber: '',
+    cardHolderName: '',
+    expiryMonth: '',
+    expiryYear: '',
+    cvv: '',
+    
     agreeTerms: false
   });
 
@@ -647,6 +663,135 @@ const TournamentRegistrationForm: React.FC<TournamentRegistrationFormProps> = ({
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Credit/Debit Card Form - Show when Card is selected */}
+              {formData.paymentMethod === 'card' && (
+                <div className="space-y-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CreditCard className="h-5 w-5 text-blue-600" />
+                      <span className="font-medium text-blue-900">Card Details</span>
+                    </div>
+                    <div className="text-lg font-bold text-blue-700">₹{tournament?.entryFee}</div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 gap-4">
+                    {/* Card Number */}
+                    <div className="space-y-2">
+                      <Label htmlFor="cardNumber">Card Number</Label>
+                      <Input
+                        id="cardNumber"
+                        type="text"
+                        placeholder="1234 5678 9012 3456"
+                        value={formData.cardNumber}
+                        onChange={(e) => {
+                          // Format card number with spaces
+                          const value = e.target.value.replace(/\s/g, '').replace(/\D/g, '');
+                          const formattedValue = value.replace(/(\d{4})(?=\d)/g, '$1 ');
+                          if (formattedValue.length <= 19) { // 16 digits + 3 spaces
+                            handleInputChange('cardNumber', formattedValue);
+                          }
+                        }}
+                        maxLength={19}
+                        className="text-lg tracking-wider"
+                      />
+                      {formData.cardNumber && formData.cardNumber.replace(/\s/g, '').length !== 16 && (
+                        <p className="text-sm text-red-600">Card number must be 16 digits</p>
+                      )}
+                    </div>
+
+                    {/* Card Holder Name */}
+                    <div className="space-y-2">
+                      <Label htmlFor="cardHolderName">Cardholder Name</Label>
+                      <Input
+                        id="cardHolderName"
+                        type="text"
+                        placeholder="JOHN DOE"
+                        value={formData.cardHolderName}
+                        onChange={(e) => {
+                          const value = e.target.value.toUpperCase().replace(/[^A-Z\s]/g, '');
+                          handleInputChange('cardHolderName', value);
+                        }}
+                        className="uppercase"
+                      />
+                      {formData.cardHolderName && formData.cardHolderName.length < 2 && (
+                        <p className="text-sm text-red-600">Please enter a valid name</p>
+                      )}
+                    </div>
+
+                    {/* Expiry and CVV */}
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="expiryMonth">Month</Label>
+                        <Select value={formData.expiryMonth} onValueChange={(value) => handleInputChange('expiryMonth', value)}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="MM" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from({ length: 12 }, (_, i) => (
+                              <SelectItem key={i + 1} value={String(i + 1).padStart(2, '0')}>
+                                {String(i + 1).padStart(2, '0')}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="expiryYear">Year</Label>
+                        <Select value={formData.expiryYear} onValueChange={(value) => handleInputChange('expiryYear', value)}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="YY" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from({ length: 10 }, (_, i) => {
+                              const year = new Date().getFullYear() + i;
+                              return (
+                                <SelectItem key={year} value={String(year).slice(-2)}>
+                                  {String(year).slice(-2)}
+                                </SelectItem>
+                              );
+                            })}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="cvv">CVV</Label>
+                        <Input
+                          id="cvv"
+                          type="password"
+                          placeholder="123"
+                          value={formData.cvv}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/\D/g, '');
+                            if (value.length <= 4) {
+                              handleInputChange('cvv', value);
+                            }
+                          }}
+                          maxLength={4}
+                        />
+                        {formData.cvv && (formData.cvv.length < 3 || formData.cvv.length > 4) && (
+                          <p className="text-sm text-red-600">CVV must be 3-4 digits</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Card Validation Messages */}
+                    {formData.paymentMethod === 'card' && (
+                      <div className="mt-3 p-3 bg-blue-100 border border-blue-300 rounded-lg">
+                        <div className="flex items-start gap-2">
+                          <CreditCard className="h-4 w-4 text-blue-600 mt-0.5" />
+                          <div className="text-sm text-blue-800">
+                            <p className="font-medium mb-1">Secure Payment</p>
+                            <p>Your card details are encrypted and secure. We accept Visa, MasterCard, and RuPay cards.</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* UPI Apps Selection - Show when UPI is selected */}
               {formData.paymentMethod === 'upi' && (

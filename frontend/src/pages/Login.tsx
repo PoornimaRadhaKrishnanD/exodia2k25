@@ -20,6 +20,31 @@ const Login = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Client-side validation
+    if (!formData.email.trim()) {
+      toast({ title: "Validation Error", description: "Email is required", variant: "destructive" });
+      return;
+    }
+    
+    if (!formData.password.trim()) {
+      toast({ title: "Validation Error", description: "Password is required", variant: "destructive" });
+      return;
+    }
+
+    // Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      toast({ title: "Validation Error", description: "Please enter a valid email address", variant: "destructive" });
+      return;
+    }
+
+    // Password length validation
+    if (formData.password.length < 6) {
+      toast({ title: "Validation Error", description: "Password must be at least 6 characters long", variant: "destructive" });
+      return;
+    }
+
     setLoading(true);
 
     try {

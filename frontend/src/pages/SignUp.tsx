@@ -24,24 +24,77 @@ const SignUp = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
+  const validateForm = () => {
+    // Name validation
+    if (!formData.name.trim()) {
+      toast({ title: "Validation Error", description: "Name is required", variant: "destructive" });
+      return false;
+    }
+    
+    if (formData.name.length < 2) {
+      toast({ title: "Validation Error", description: "Name must be at least 2 characters long", variant: "destructive" });
+      return false;
+    }
 
+    // Email validation
+    if (!formData.email.trim()) {
+      toast({ title: "Validation Error", description: "Email is required", variant: "destructive" });
+      return false;
+    }
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      toast({ title: "Validation Error", description: "Please enter a valid email address", variant: "destructive" });
+      return false;
+    }
+
+    // Phone validation (optional but if provided, should be valid)
+    if (formData.phone && formData.phone.trim()) {
+      const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
+      if (!phoneRegex.test(formData.phone.replace(/\s|-|\(|\)/g, ''))) {
+        toast({ title: "Validation Error", description: "Please enter a valid phone number", variant: "destructive" });
+        return false;
+      }
+    }
+
+    // Password validation
+    if (!formData.password.trim()) {
+      toast({ title: "Validation Error", description: "Password is required", variant: "destructive" });
+      return false;
+    }
+    
+    if (formData.password.length < 6) {
+      toast({ title: "Validation Error", description: "Password must be at least 6 characters long", variant: "destructive" });
+      return false;
+    }
+
+    // Confirm password validation
     if (formData.password !== formData.confirmPassword) {
       toast({ title: "Password Mismatch", description: "Passwords do not match", variant: "destructive" });
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!validateForm()) {
       setLoading(false);
       return;
     }
+
+    setLoading(true);
 
     try {
       const res = await fetch("http://localhost:5000/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: formData.name,
-          email: formData.email,
-          phone: formData.phone,
+          name: formData.name.trim(),
+          email: formData.email.trim().toLowerCase(),
+          phone: formData.phone.trim(),
           password: formData.password
         }),
       });

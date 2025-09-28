@@ -63,8 +63,121 @@ const CreateTournament = () => {
     });
   };
 
+  const validateTournamentForm = () => {
+    // Basic required fields
+    if (!formData.name.trim()) {
+      toast({ title: "Validation Error", description: "Tournament name is required", variant: "destructive" });
+      return false;
+    }
+
+    if (formData.name.length < 3) {
+      toast({ title: "Validation Error", description: "Tournament name must be at least 3 characters long", variant: "destructive" });
+      return false;
+    }
+
+    if (!formData.description.trim()) {
+      toast({ title: "Validation Error", description: "Tournament description is required", variant: "destructive" });
+      return false;
+    }
+
+    if (formData.description.length < 20) {
+      toast({ title: "Validation Error", description: "Tournament description must be at least 20 characters long", variant: "destructive" });
+      return false;
+    }
+
+    if (!formData.type) {
+      toast({ title: "Validation Error", description: "Sport type is required", variant: "destructive" });
+      return false;
+    }
+
+    if (!formData.location.trim()) {
+      toast({ title: "Validation Error", description: "Tournament location is required", variant: "destructive" });
+      return false;
+    }
+
+    // Date validations
+    if (!formData.date) {
+      toast({ title: "Validation Error", description: "Tournament date is required", variant: "destructive" });
+      return false;
+    }
+
+    const tournamentDate = new Date(formData.date);
+    const currentDate = new Date();
+    currentDate.setHours(0, 0, 0, 0);
+
+    if (tournamentDate <= currentDate) {
+      toast({ title: "Validation Error", description: "Tournament date must be in the future", variant: "destructive" });
+      return false;
+    }
+
+    if (!formData.registrationDeadline) {
+      toast({ title: "Validation Error", description: "Registration deadline is required", variant: "destructive" });
+      return false;
+    }
+
+    const deadlineDate = new Date(formData.registrationDeadline);
+    if (deadlineDate >= tournamentDate) {
+      toast({ title: "Validation Error", description: "Registration deadline must be before tournament date", variant: "destructive" });
+      return false;
+    }
+
+    if (deadlineDate <= currentDate) {
+      toast({ title: "Validation Error", description: "Registration deadline must be in the future", variant: "destructive" });
+      return false;
+    }
+
+    // Numeric validations
+    if (!formData.maxParticipants || parseInt(formData.maxParticipants) < 2) {
+      toast({ title: "Validation Error", description: "Maximum participants must be at least 2", variant: "destructive" });
+      return false;
+    }
+
+    if (parseInt(formData.maxParticipants) > 1000) {
+      toast({ title: "Validation Error", description: "Maximum participants cannot exceed 1000", variant: "destructive" });
+      return false;
+    }
+
+    if (!formData.entryFee || parseFloat(formData.entryFee) < 0) {
+      toast({ title: "Validation Error", description: "Entry fee must be 0 or greater", variant: "destructive" });
+      return false;
+    }
+
+    if (parseFloat(formData.entryFee) > 100000) {
+      toast({ title: "Validation Error", description: "Entry fee cannot exceed ₹100,000", variant: "destructive" });
+      return false;
+    }
+
+    if (!formData.prizePool || parseFloat(formData.prizePool) < 0) {
+      toast({ title: "Validation Error", description: "Prize pool must be 0 or greater", variant: "destructive" });
+      return false;
+    }
+
+    if (parseFloat(formData.prizePool) > 10000000) {
+      toast({ title: "Validation Error", description: "Prize pool cannot exceed ₹10,000,000", variant: "destructive" });
+      return false;
+    }
+
+    // Prize pool should be reasonable compared to entry fee * max participants
+    const totalRevenue = parseFloat(formData.entryFee) * parseInt(formData.maxParticipants);
+    if (parseFloat(formData.prizePool) > totalRevenue * 1.5) {
+      toast({ 
+        title: "Validation Warning", 
+        description: "Prize pool seems unusually high compared to potential revenue. Please verify.", 
+        variant: "destructive" 
+      });
+      return false;
+    }
+
+    return true;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!validateTournamentForm()) {
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -76,12 +189,12 @@ const CreateTournament = () => {
 
       // Prepare tournament data
       const tournamentData = {
-        name: formData.name,
-        description: formData.description,
+        name: formData.name.trim(),
+        description: formData.description.trim(),
         type: formData.type,
         date: new Date(formData.date).toISOString(),
         endDate: formData.registrationDeadline ? new Date(formData.registrationDeadline).toISOString() : undefined,
-        location: formData.location,
+        location: formData.location.trim(),
         maxParticipants: parseInt(formData.maxParticipants),
         entryFee: parseFloat(formData.entryFee),
         rules: formData.rules ? formData.rules.split('\n').filter(rule => rule.trim()) : [],

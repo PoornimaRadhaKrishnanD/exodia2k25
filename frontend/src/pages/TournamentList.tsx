@@ -84,12 +84,39 @@ const TournamentList = () => {
       });
   }, []);
 
+  // Input validation for search
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    
+    // Prevent XSS by sanitizing input
+    const sanitizedValue = value.replace(/[<>]/g, '');
+    
+    // Limit search term length
+    if (sanitizedValue.length <= 100) {
+      setSearchTerm(sanitizedValue);
+    } else {
+      toast({
+        title: "Search Limit",
+        description: "Search term cannot exceed 100 characters",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Enhanced filtering with validation
   const filteredTournaments = tournaments.filter(tournament => {
-    const matchesSearch =
-      tournament.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      tournament.type.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === "all" || tournament.status === statusFilter;
-    const matchesType = typeFilter === "all" || tournament.type === typeFilter;
+    if (!tournament || typeof tournament !== 'object') return false;
+
+    const matchesSearch = searchTerm.trim() === '' || 
+      (tournament.name && tournament.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (tournament.type && tournament.type.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (tournament.location && tournament.location.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    const matchesStatus = statusFilter === "all" || 
+      (tournament.status && tournament.status === statusFilter);
+    
+    const matchesType = typeFilter === "all" || 
+      (tournament.type && tournament.type === typeFilter);
 
     return matchesSearch && matchesStatus && matchesType;
   });
@@ -159,7 +186,7 @@ const TournamentList = () => {
                   <Input
                     placeholder="Search tournaments..."
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={handleSearchChange}
                     className="pl-10"
                   />
                 </div>

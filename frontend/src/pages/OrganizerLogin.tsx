@@ -17,6 +17,31 @@ const OrganizerLogin = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Client-side validation
+    if (!email.trim()) {
+      toast({ title: "Validation Error", description: "Email is required", variant: "destructive" });
+      return;
+    }
+    
+    if (!password.trim()) {
+      toast({ title: "Validation Error", description: "Password is required", variant: "destructive" });
+      return;
+    }
+
+    // Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      toast({ title: "Validation Error", description: "Please enter a valid email address", variant: "destructive" });
+      return;
+    }
+
+    // Password length validation
+    if (password.length < 6) {
+      toast({ title: "Validation Error", description: "Password must be at least 6 characters long", variant: "destructive" });
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -27,7 +52,10 @@ const OrganizerLogin = () => {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ 
+          email: email.trim().toLowerCase(), 
+          password: password 
+        }),
       });
 
       const data = await response.json();

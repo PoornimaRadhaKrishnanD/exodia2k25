@@ -15,18 +15,54 @@ const Index = () => {
   ]);
   const [input, setInput] = useState("");
 
+  // Input validation for chatbot
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    
+    // Prevent XSS by sanitizing input
+    const sanitizedValue = value.replace(/[<>]/g, '');
+    
+    // Limit input length
+    if (sanitizedValue.length <= 500) {
+      setInput(sanitizedValue);
+    }
+  };
+
   const handleSend = () => {
-    if (!input.trim()) return;
+    const trimmedInput = input.trim();
+    
+    // Validate input
+    if (!trimmedInput) {
+      return;
+    }
 
-    const newMessages = [...messages, { from: "user" as const, text: input }];
+    if (trimmedInput.length < 2) {
+      return;
+    }
 
-    // Simple bot logic
-    let reply = "🤖 I am the Tournament Pro Assistant. I can only answer questions related to this website.";
-    const query = input.toLowerCase();
-    if (query.includes("join")) reply = "To join a tournament, browse the tournaments list and click 'Join Tournament'.";
-    else if (query.includes("payment")) reply = "Payments are 100% digital - UPI, Cards, Wallets. No cash accepted.";
-    else if (query.includes("withdraw")) reply = "You can request withdrawal before the deadline. Partial refund applies.";
-    else if (query.includes("organizer")) reply = "Organizers can log in via the Admin Portal and create tournaments.";
+    if (trimmedInput.length > 500) {
+      return;
+    }
+
+    const newMessages = [...messages, { from: "user" as const, text: trimmedInput }];
+
+    // Simple bot logic with enhanced responses
+    let reply = "🤖 I am the Tournament Pro Assistant. I can help you with tournament-related questions!";
+    const query = trimmedInput.toLowerCase();
+    
+    if (query.includes("join") || query.includes("register")) {
+      reply = "To join a tournament, browse the tournaments list and click 'Join Tournament'. Make sure you're logged in first!";
+    } else if (query.includes("payment") || query.includes("pay") || query.includes("upi")) {
+      reply = "Payments are 100% digital - UPI (Google Pay, PhonePe, Paytm), Cards, Wallets. No cash accepted. Each payment method has its own QR code!";
+    } else if (query.includes("withdraw") || query.includes("refund")) {
+      reply = "You can request withdrawal before the registration deadline. Partial refund applies based on tournament terms.";
+    } else if (query.includes("organizer") || query.includes("create") || query.includes("admin")) {
+      reply = "Organizers can log in via the Admin Portal and create tournaments. You'll need proper credentials to access admin features.";
+    } else if (query.includes("profile") || query.includes("account")) {
+      reply = "You can manage your profile, notifications, and payment settings through the User Dashboard after logging in.";
+    } else if (query.includes("help") || query.includes("support")) {
+      reply = "I can help you with: joining tournaments, payments, withdrawals, organizer features, and general navigation. What would you like to know?";
+    }
 
     setMessages([...newMessages, { from: "bot" as const, text: reply }]);
     setInput("");
@@ -210,7 +246,7 @@ const Index = () => {
               <input
                 type="text"
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={handleInputChange}
                 onKeyDown={(e) => e.key === "Enter" && handleSend()}
                 placeholder="Ask me..."
                 className="flex-1 border rounded-lg px-2 py-1 text-sm"
